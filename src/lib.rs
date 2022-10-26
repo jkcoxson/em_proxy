@@ -161,7 +161,12 @@ pub unsafe extern "C" fn stop_emotional_damage(handle: *mut c_void) {
         println!("Somebody just tried to stop non-existent emotional damage");
         return;
     }
-    Box::from_raw(handle);
+    // Do evil stuff (mwa ha ha you can't stop me from transmute)
+    let sender: Box<Sender<()>> = std::mem::transmute(Box::from_raw(handle));
+
+    if sender.send(()).is_ok() {
+        // don't care
+    }
 }
 
 #[cfg(test)]
