@@ -156,7 +156,7 @@ pub unsafe extern "C" fn start_emotional_damage(bind_addr: *const c_char) -> *mu
 /// The knowledge of knowing that you couldn't handle failure
 /// # Safety
 /// Don't be stupid
-pub unsafe extern "C" fn stop_emotional_damage(handle: *mut Sender<()>) {
+pub unsafe extern "C" fn stop_emotional_damage(handle: *mut c_void) {
     if handle.is_null() {
         println!("Somebody just tried to stop non-existent emotional damage");
         return;
