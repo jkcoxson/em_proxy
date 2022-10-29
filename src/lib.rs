@@ -167,6 +167,11 @@ pub fn start_loopback(bind_addr: SocketAddrV4) -> Sender<()> {
 /// # Safety
 /// Don't be stupid
 pub unsafe extern "C" fn start_emotional_damage(bind_addr: *const c_char) -> c_int {
+    // Check if the proxy exists
+    if GLOBAL_HANDLE.lock().unwrap().is_some() {
+        println!("Proxy already exists, skipping");
+        return 0;
+    }
     // Check the address
     if bind_addr.is_null() {
         return -1;
@@ -181,13 +186,7 @@ pub unsafe extern "C" fn start_emotional_damage(bind_addr: *const c_char) -> c_i
         Err(_) => return -3,
     };
     let handle = start_loopback(address);
-    let sender = GLOBAL_HANDLE.lock().unwrap().clone();
-    if let Some(sender) = sender {
-        println!("Killing existing proxy");
-        if sender.send(()).is_ok() {
-            //
-        }
-    }
+
     *GLOBAL_HANDLE.lock().unwrap() = Some(handle);
 
     0
