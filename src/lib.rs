@@ -46,7 +46,7 @@ pub fn start_loopback(bind_addr: SocketAddrV4) -> Sender<()> {
                 Ok(s) => socket = s,
                 Err(e) => match e.kind() {
                     std::io::ErrorKind::AddrInUse => {
-                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        std::thread::sleep(std::time::Duration::from_millis(50));
                         continue;
                     }
                     _ => panic!(),
