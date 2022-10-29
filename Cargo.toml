@@ -12,6 +12,7 @@ path = "src/run.rs"
 [dependencies]
 boringtun = { version = "0.4.0" }
 libc = { version = "0.2.126" }
+once_cell = { version = "1.15.0" }
 
 simple_logger = { version = "2.3.0" }
 log = { version = "0.4.17" }

@@ -6,13 +6,16 @@ use std::{
     str::FromStr,
     sync::{
         mpsc::{channel, Sender},
-        Arc,
+        Arc, Mutex,
     },
 };
 
 use boringtun::crypto::{X25519PublicKey, X25519SecretKey};
-use libc::{c_char, c_void};
+use libc::{c_char, c_int};
 use log::error;
+use once_cell::sync::Lazy;
+
+static GLOBAL_HANDLE: Lazy<Mutex<Option<Sender<()>>>> = Lazy::new(|| Mutex::new(None));
 
 pub fn start_loopback(bind_addr: SocketAddrV4) -> Sender<()> {
     // Create the handle
@@ -35,9 +38,23 @@ pub fn start_loopback(bind_addr: SocketAddrV4) -> Sender<()> {
     )
     .unwrap();
 
-    let mut socket = std::net::UdpSocket::bind(bind_addr).unwrap();
-
     std::thread::spawn(move || {
+        // Try and wait for the socket to become available
+        let mut socket;
+        loop {
+            match std::net::UdpSocket::bind(bind_addr) {
+                Ok(s) => socket = s,
+                Err(e) => match e.kind() {
+                    std::io::ErrorKind::AddrInUse => {
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    }
+                    _ => panic!(),
+                },
+            };
+            break;
+        }
+
         let mut ready = false;
         loop {
             // Attempt to read from the UDP socket
@@ -149,22 +166,24 @@ pub fn start_loopback(bind_addr: SocketAddrV4) -> Sender<()> {
 /// Null on failure
 /// # Safety
 /// Don't be stupid
-pub unsafe extern "C" fn start_emotional_damage(bind_addr: *const c_char) -> *mut c_void {
+pub unsafe extern "C" fn start_emotional_damage(bind_addr: *const c_char) -> c_int {
     // Check the address
     if bind_addr.is_null() {
-        return std::ptr::null_mut();
+        return -1;
     }
     let address = CStr::from_ptr(bind_addr as *mut _);
     let address = match address.to_str() {
         Ok(address) => address,
-        Err(_) => return std::ptr::null_mut(),
+        Err(_) => return -2,
     };
     let address = match address.parse::<SocketAddrV4>() {
         Ok(address) => address,
-        Err(_) => return std::ptr::null_mut(),
+        Err(_) => return -3,
     };
+    let handle = start_loopback(address);
+    *GLOBAL_HANDLE.lock().unwrap() = Some(handle);
 
-    Box::into_raw(Box::new(start_loopback(address))) as *mut c_void
+    0
 }
 
 #[no_mangle]
@@ -175,17 +194,14 @@ pub unsafe extern "C" fn start_emotional_damage(bind_addr: *const c_char) -> *mu
 /// The knowledge of knowing that you couldn't handle failure
 /// # Safety
 /// Don't be stupid
-pub unsafe extern "C" fn stop_emotional_damage(handle: *mut c_void) {
-    if handle.is_null() {
-        println!("Somebody just tried to stop non-existent emotional damage");
-        return;
+pub unsafe extern "C" fn stop_emotional_damage() {
+    let sender = GLOBAL_HANDLE.lock().unwrap().clone();
+    if let Some(sender) = sender {
+        if sender.send(()).is_ok() {
+            //
+        }
     }
-    // Do evil stuff (mwa ha ha you can't stop me from transmute)
-    let sender: Box<Sender<()>> = std::mem::transmute(Box::from_raw(handle));
-
-    if sender.send(()).is_ok() {
-        // don't care
-    }
+    *GLOBAL_HANDLE.lock().unwrap() = None;
 }
 
 #[cfg(test)]
