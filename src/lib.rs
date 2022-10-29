@@ -57,6 +57,7 @@ pub fn start_loopback(bind_addr: SocketAddrV4) -> Sender<()> {
                                 continue;
                             }
                         };
+                        println!("Rebound to socket!");
                         break;
                     }
                     continue;
