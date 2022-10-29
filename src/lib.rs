@@ -46,6 +46,7 @@ pub fn start_loopback(bind_addr: SocketAddrV4) -> Sender<()> {
                 Ok(s) => socket = s,
                 Err(e) => match e.kind() {
                     std::io::ErrorKind::AddrInUse => {
+                        println!("EMP address in use, retrying...");
                         std::thread::sleep(std::time::Duration::from_millis(50));
                         continue;
                     }
@@ -145,10 +146,16 @@ pub fn start_loopback(bind_addr: SocketAddrV4) -> Sender<()> {
             }
             // Die if instructed or if the handle was destroyed
             match rx.try_recv() {
-                Ok(_) => return,
+                Ok(_) => {
+                    println!("EMP instructed to die");
+                    return;
+                }
                 Err(e) => match e {
                     std::sync::mpsc::TryRecvError::Empty => continue,
-                    std::sync::mpsc::TryRecvError::Disconnected => return,
+                    std::sync::mpsc::TryRecvError::Disconnected => {
+                        println!("Handle has been destroyed");
+                        return;
+                    }
                 },
             }
         }
