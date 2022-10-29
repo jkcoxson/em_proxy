@@ -217,6 +217,64 @@ pub unsafe extern "C" fn stop_emotional_damage() {
     *GLOBAL_HANDLE.lock().unwrap() = None;
 }
 
+#[no_mangle]
+/// Blocks until Wireguard is ready
+/// # Arguments
+/// * `timeout` - The timeout in miliseconds to wait for Wireguard
+/// # Returns
+/// 0 on success, -1 on failure
+pub extern "C" fn test_emotional_damage(timeout: c_int) -> c_int {
+    // Bind to the testing socket ASAP
+    let mut testing_port = 3000_u16;
+    let listener;
+    loop {
+        listener = match std::net::UdpSocket::bind((
+            std::net::Ipv4Addr::new(127, 0, 0, 1),
+            testing_port,
+        )) {
+            Ok(l) => l,
+            Err(e) => match e.kind() {
+                std::io::ErrorKind::AddrInUse => {
+                    testing_port += 1;
+                    continue;
+                }
+                _ => {
+                    println!("Unable to bind to UDP socket");
+                    return -1;
+                }
+            },
+        };
+        break;
+    }
+    listener
+        .set_read_timeout(Some(std::time::Duration::from_millis(timeout as u64)))
+        .unwrap();
+
+    std::thread::spawn(move || {
+        let sender =
+            std::net::UdpSocket::bind((std::net::Ipv4Addr::new(127, 0, 0, 1), testing_port + 1))
+                .unwrap();
+        for _ in 0..10 {
+            if sender
+                .send_to(&[69], (std::net::Ipv4Addr::new(127, 0, 0, 1), testing_port))
+                .is_ok()
+            {
+                // pass
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    });
+
+    let mut buf = [0_u8; 1];
+    match listener.recv(&mut buf) {
+        Ok(_) => 0,
+        Err(e) => {
+            println!("Never received test data: {:?}", e);
+            -1
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
