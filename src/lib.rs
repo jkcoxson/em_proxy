@@ -35,15 +35,20 @@ pub fn start_loopback(bind_addr: SocketAddrV4) -> Sender<()> {
     )
     .unwrap();
 
-    let socket = std::net::UdpSocket::bind(bind_addr).unwrap();
+    let mut socket = std::net::UdpSocket::bind(bind_addr).unwrap();
 
     std::thread::spawn(move || {
         let mut ready = false;
         loop {
             // Attempt to read from the UDP socket
-            socket
-                .set_read_timeout(Some(std::time::Duration::from_millis(5)))
-                .unwrap();
+            match socket.set_read_timeout(Some(std::time::Duration::from_millis(5))) {
+                Ok(_) => {}
+                Err(e) => {
+                    println!("Unable to set UDP timeout: {:?}\nRebinding to socket", e);
+                    socket = std::net::UdpSocket::bind(bind_addr).unwrap();
+                    continue;
+                }
+            }
             let mut buf = [0_u8; 2048]; // we can use a small buffer because it will tell us if more is needed
             match socket.recv_from(&mut buf) {
                 Ok((size, endpoint)) => {
