@@ -45,7 +45,20 @@ pub fn start_loopback(bind_addr: SocketAddrV4) -> Sender<()> {
                 Ok(_) => {}
                 Err(e) => {
                     println!("Unable to set UDP timeout: {:?}\nRebinding to socket", e);
-                    socket = std::net::UdpSocket::bind(bind_addr).unwrap();
+                    std::mem::drop(socket);
+
+                    // Wait until we can rebind to the socket
+                    loop {
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        socket = match std::net::UdpSocket::bind(bind_addr) {
+                            Ok(s) => s,
+                            Err(e) => {
+                                println!("Socket not dropped: {:?}", e);
+                                continue;
+                            }
+                        };
+                        break;
+                    }
                     continue;
                 }
             }
