@@ -181,6 +181,13 @@ pub unsafe extern "C" fn start_emotional_damage(bind_addr: *const c_char) -> c_i
         Err(_) => return -3,
     };
     let handle = start_loopback(address);
+    let sender = GLOBAL_HANDLE.lock().unwrap().clone();
+    if let Some(sender) = sender {
+        println!("Killing existing proxy");
+        if sender.send(()).is_ok() {
+            //
+        }
+    }
     *GLOBAL_HANDLE.lock().unwrap() = Some(handle);
 
     0
