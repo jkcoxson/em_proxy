@@ -20,5 +20,8 @@ log = { version = "0.4.17" }
 [dev-dependencies]
 rand = { version = "*" }
 
+[build-dependencies]
+cbindgen = "0.20.0"
+
 [lib]
 crate-type = ["staticlib"]
