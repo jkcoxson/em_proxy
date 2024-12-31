@@ -17,16 +17,58 @@ use once_cell::sync::Lazy;
 
 static GLOBAL_HANDLE: Lazy<Mutex<Option<Sender<()>>>> = Lazy::new(|| Mutex::new(None));
 
+pub struct Config {
+    server_privatekey: String,
+    client_publickey: String,
+}
+
+static CONFIG: Lazy<Mutex<Config>> = Lazy::new(|| Mutex::new(Config {
+    server_privatekey: include_str!("../keys/server_privatekey")[..44].to_string(),
+    client_publickey: include_str!("../keys/client_publickey")[..44].to_string(),
+}));
+
+#[no_mangle]
+/// Sets the server private key
+/// # Arguments
+/// * `privatekey` - the b64 representation of the privatekey
+/// # Returns
+/// Null on failure
+pub unsafe extern "C" fn set_server_privatekey(privatekey: *const c_char) -> c_int {
+    if let Ok(mut config) = CONFIG.lock() {
+        let private_key = CStr::from_ptr(privatekey as *mut _);
+        if let Ok(private_key_str) = private_key.to_str() {
+            config.server_privatekey = private_key_str.to_string();
+            return 0;
+        }
+    }
+    return -1;
+}
+
+#[no_mangle]
+/// Sets the client public key
+/// # Arguments
+/// * `publickey` - the b64 representation of the public key
+/// # Returns
+/// Null on failure
+pub unsafe extern "C" fn set_client_publickey(publickey: *const c_char) -> c_int {
+    if let Ok(mut config) = CONFIG.lock() {
+        let public_key = CStr::from_ptr(publickey as *mut _);
+        if let Ok(public_key_str) = public_key.to_str() {
+            config.client_publickey = public_key_str.to_string();
+            return 0;
+        }
+    }
+    return -1;
+}
+
 pub fn start_loopback(bind_addr: SocketAddrV4) -> Sender<()> {
     // Create the handle
     let (tx, rx) = channel();
 
-    // Read the keys to memory
-    let server_private = include_str!("../keys/server_privatekey")[..44].to_string();
-    let client_public = include_str!("../keys/client_publickey")[..44].to_string();
+    let config = CONFIG.lock().unwrap();
 
-    let server_private = X25519SecretKey::from_str(&server_private).unwrap();
-    let client_public = X25519PublicKey::from_str(&client_public).unwrap();
+    let server_private = X25519SecretKey::from_str(&config.server_privatekey).unwrap();
+    let client_public = X25519PublicKey::from_str(&config.client_publickey).unwrap();
 
     let tun = boringtun::noise::Tunn::new(
         Arc::new(server_private),
